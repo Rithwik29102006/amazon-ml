@@ -1,8 +1,8 @@
 # ML Challenge 2026: Business Entity Resolution Solution
 
-**Team Name:** {{TEAM_NAME}}  
-**Team Members:** {{TEAM_MEMBERS}}  
-**Submission Date:** {{DATE}}
+**Team Name:** Quantum  
+**Team Members:** Thoomu Rithwik Reddy (Team Leader), Yama Ram Charan, Patina Mounika, Chinthakayala Dineshwar  
+**Submission Date:** 26 September 2026
 
 ---
 
@@ -84,7 +84,7 @@ We block within each country (`blocking.py`). S2/S3 records are the queries and 
   - cosines, per-query ranks, gaps to the best candidate, margin over the runner-up, and which views retrieved the pair.
   - It is trained on 120k training queries, excluding validation-split entities.
   - Pairs with p0 ≥ 0.001 (at most 8 per query) are kept.
-- **Candidate pairs generated:** train {{N_CAND_TRAIN}}, test {{N_CAND_TEST}} (about 2 per S2/S3 record).
+- **Candidate pairs generated:** train 19,411,765, test 21,036,635 (about 2 per S2/S3 record).
 - **How we ensured true matches were not lost:**
   - The three complementary views catch name-only matches (missing address), address-only matches (unrelated name) and weak-on-both matches.
   - Skeleton and transliteration features let native-script names match English ones.
@@ -95,7 +95,7 @@ We block within each country (`blocking.py`). S2/S3 records are the queries and 
 |---|---|---|
 | union of 3 views (sample of 30k queries) | 97.6% | 98.9% |
 | after stage-0 pruner (share of the above kept) | 99.7% | 99.7% |
-| candidate recall on the full validation split | {{RECALL_VALID}} | |
+| **final candidate set, full training data** (overall 98.1% = 7,494,392 / 7,638,365) | **97.2%** | **98.7%** |
 
 The remaining misses are mostly generic names ("Family Center", "Housing Trust") with **no address**, where dozens of S1 entities are equally plausible. They are very hard to resolve even with perfect features.
 
@@ -134,17 +134,17 @@ The remaining misses are mostly generic names ("Family Center", "Housing Trust")
 
 **Threshold selection method:**
 - Validation holds out 15% of S1 training entities by a deterministic hash split. Blocking still runs against the full training S1 index, so the density of competing candidates is realistic.
-- τ is chosen by grid search to maximise the exact **macro F0.5 over all validation S1 entities**, singletons included. This gives τ = {{TAU}}.
+- τ is chosen by grid search to maximise the exact **macro F0.5 over all validation S1 entities**, singletons included. This gives τ = 0.625.
 - The final model is then refit on all training pairs with the same τ.
 
 ---
 
 ## 5. Results & Error Analysis
 
-- **F_0.5 Score (macro, validation split):** **{{F05_VALID}}**. The upper bound given perfect classification of our candidates is {{ORACLE}}.
-- **Public leaderboard F0.5:** {{F05_LB}}
-- **Common false positives (wrong merges):** {{FP_NOTES}}
-- **Common false negatives (missed matches):** {{FN_NOTES}}
+- **F_0.5 Score (macro, validation split):** **0.9733 (India 0.9708, US 0.9750)**. The upper bound given perfect classification of our candidates is 0.9938.
+- **Public leaderboard F0.5:** to be added after upload
+- **Common false positives (wrong merges):** Pair-level precision on validation is 99.2% (8,908 wrong pairs out of 1.09M predicted). Only 594 of the 18,625 validation singletons received any match. Most wrong merges are generated hard negatives: the same or a near-identical name at a slightly different house number ("3902 Hay Point Landing Rd" vs "390 …", "6912 40th Ave" vs "691 40th Ave"), or the same name stem with a different trailing word ("Heartland Bioworks" vs "Heartland Plumbing"). 1,528 of them are records that truly belong to another S1 entity where the wrong entity won the argmax.
+- **Common false negatives (missed matches):** Pair-level recall on validation is 94.4%. Of the 64.6k missed pairs, 21.6k were never retrieved by blocking: mostly generic names ("Family Center", "Housing Trust") with no address, where many S1 entities are equally plausible. The other 43.0k were retrieved but scored below τ. These are typically true matches whose house number was perturbed ("3900 Olympic Blvd" vs "390 …", "5327" vs "5325 Abbeywood Ct"), which look exactly like the hard negatives above, or records with no address and a typo in the name. Because F0.5 favours precision, the tuned threshold deliberately gives these up.
 
 ---
 
@@ -175,4 +175,23 @@ The code is in `code/business_entity_resolution/`: all source in `src/`, plus `R
 ### B. Additional Results
 Validation macro F0.5 vs. threshold τ:
 
-{{TAU_CURVE}}
+| τ | 0.200 | 0.250 | 0.300 | 0.400 | 0.500 | 0.600 | 0.625 | 0.700 | 0.750 | 0.800 | 0.900 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| macro F0.5 | 0.9549 | 0.9600 | 0.9639 | 0.9690 | 0.9719 | 0.9732 | **0.9733** | 0.9732 | 0.9728 | 0.9721 | 0.9685 |
+
+The curve is flat between τ = 0.60 and 0.70 (0.9732–0.9733), so the choice is robust.
+
+**Test-set prediction statistics** (final model, τ = 0.625):
+
+| country | S1 entities | no match predicted | avg. matches per S1 |
+|---|---|---|---|
+| France (unseen in training) | 259,452 | 5.2% | 3.38 |
+| India | 809,986 | 5.8% | 3.32 |
+| US | 663,106 | 5.8% | 3.34 |
+| **total** | **1,732,544** | **5.7% (99,241)** | **5,778,694 matches** |
+
+France behaves like the two training countries (the training singleton rate is 5.6%), which suggests the country-agnostic model transfers.
+
+**Validation pair-level metrics:** precision 99.2%, recall 94.4%; singletons that wrongly received a match: 594 / 18,625 (3.2%).
+
+**Runtime** (10-core Apple laptop, 16 GB): normalisation 3 min, transliteration 2 min, blocking train 1 h 49 min and test 39 min, features 7 min, training (validation and final) 1 h 35 min, prediction 15 min.

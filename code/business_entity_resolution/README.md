@@ -34,7 +34,7 @@ By default it looks for `../../dataset` relative to this folder (the
 | variable | default | meaning |
 |---|---|---|
 | `BER_DATA_DIR` | `<student_resource>/dataset` | folder with `train/` and `test/` |
-| `BER_WORK_DIR` | `<student_resource>/work` | intermediate parquet files and models (~15 GB) |
+| `BER_WORK_DIR` | `<student_resource>/work` | intermediate parquet files and models (~8 GB) |
 | `BER_OUT_DIR`  | `<student_resource>/output` | where the two TSVs are written |
 | `BER_N_JOBS`   | all cores | worker threads/processes |
 
@@ -50,10 +50,10 @@ or step by step, from `src/`:
 |---|---|---|---|
 | 1 | `python prepare.py train test` | normalise names/addresses into parquet | 3 min |
 | 1b | `python translit.py` | learn the romanised-Indic → English token dictionary from training pairs, re-normalise non-Latin names | 2 min |
-| 2 | `python blocking.py train test` | TF-IDF top-k retrieval (name / address / combined views) and the stage-0 pruner | ~1.5 h |
-| 3 | `python build_features.py train test` | 60+ pairwise similarity features | ~25 min |
-| 4 | `python train.py` | train the matcher, tune the threshold on the validation split, refit on all data | ~30 min |
-| 5 | `python predict.py` | score the test candidates and write both TSVs | ~3 min |
+| 2 | `python blocking.py train test` | TF-IDF top-k retrieval (name / address / combined views) and the stage-0 pruner | ~2.5 h |
+| 3 | `python build_features.py train test` | 60+ pairwise similarity features | ~7 min |
+| 4 | `python train.py` | train the matcher, tune the threshold on the validation split, refit on all data | ~1.5 h |
+| 5 | `python predict.py` | score the test candidates and write both TSVs | ~15 min |
 
 \*On a 10-core laptop.
 
