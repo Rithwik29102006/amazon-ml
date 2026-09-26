@@ -32,6 +32,9 @@ In git (branch `final-submission`): all code, the filled `Documentation_template
 
 Measured runtimes (10-core Mac, 16 GB): blocking 2.5 h, features 7 min, train 1.5 h, predict 15 min.
 
+## M3 done (per-country tau)
+`src/tune_country_tau.py` rebuilds the validation scores and tunes tau per country: US 0.625, India 0.650, France uses the global 0.625. Validation F0.5 goes from 0.97329 to 0.97332. The thresholds are saved as `tau_country` in `matcher_meta.json`, and `predict.py` applies them. New test output: 5,770,290 matches, 99,575 S1 without a match; validator PASS.
+
 ## Still to do
 1. **Upload** `output/matching_results.tsv` to the leaderboard. Put the score in Documentation_template.md (Section 5, "Public leaderboard F0.5").
 2. **Submit** `Quantum_submission.zip` (rebuild it if the docs change).

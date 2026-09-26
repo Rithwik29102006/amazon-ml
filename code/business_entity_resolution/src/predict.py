@@ -35,7 +35,15 @@ def main():
     feats, tau = meta["features"], meta["tau"]
     df = load("test", columns=["q_id", "s1_id"] + feats)
     df = df.with_columns(pl.Series("p", model.predict_proba(df.select(feats).to_numpy().astype(np.float32))[:, 1]))
-    matches = assign(df, tau)
+    if meta.get("tau_country"):
+        # per-country tau (tune_country_tau.py); unseen countries keep the global tau
+        s1c = pl.read_parquet(config.norm_path("test", 1), columns=["entity_id", "country"])
+        best = assign(df, 0.0).join(s1c.rename({"entity_id": "s1_id"}), on="s1_id", how="left")
+        best = best.join(df.select("q_id", "s1_id", "p"), on=["q_id", "s1_id"], how="left")
+        t_col = pl.col("country").replace_strict(meta["tau_country"], default=tau, return_dtype=pl.Float64)
+        matches = best.filter(pl.col("p") >= t_col).select("s1_id", "q_id")
+    else:
+        matches = assign(df, tau)
 
     s1_ids = pl.read_csv(config.raw_path("test", 1), separator="\t", quote_char=None,
                          infer_schema_length=0, columns=["entity_id"])["entity_id"]
