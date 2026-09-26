@@ -1,0 +1,8 @@
+dataset/
+work/
+.venv/
+output/
+*.zip
+__pycache__/
+*.pyc
+.DS_Store
