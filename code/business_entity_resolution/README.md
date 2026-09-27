@@ -53,6 +53,7 @@ or step by step, from `src/`:
 | 1 | `python prepare.py train test` | normalise names/addresses into parquet | 3 min |
 | 1b | `python translit.py` | learn the romanised-Indic → English token dictionary from training pairs, re-normalise non-Latin names | 2 min |
 | 2 | `python blocking.py train test` | TF-IDF top-k retrieval (name / address / combined views) and the stage-0 pruner | ~2.5 h |
+| 2b | `python refine_candidates.py` | stage-0b filter: cheap name/address/number similarities, drops ~50% of candidates → final candidate set | ~9 min |
 | 3 | `python build_features.py train test` | 60+ pairwise similarity features | ~7 min |
 | 4 | `python train.py` | two-stage LightGBM (4-fold CV over Source-1 entities), out-of-fold token statistics, decision-rule search (global / per-country threshold, expected-F0.5 sets) | ~45 min |
 | 5 | `python predict.py` | two-stage scoring of the test candidates, write both TSVs | ~20 min |
@@ -75,6 +76,7 @@ src/
   prepare.py         step 1: raw TSV -> normalised parquet (multiprocessing)
   translit.py        step 1b: learned transliteration dictionary
   blocking.py        step 2: sparse TF-IDF views, sparse_dot_topn top-k, stage-0 pruner
+  refine_candidates.py step 2b: stage-0b candidate filter (last blocking stage)
   features.py        pairwise features (rapidfuzz cpdist, token-set overlaps, numbers)
   build_features.py  step 3: features for all candidate pairs, chunked
   evaluate.py        ground truth loading, S1 hash split, macro F0.5

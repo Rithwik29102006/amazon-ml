@@ -35,7 +35,7 @@ Measured runtimes (10-core Mac, 16 GB): blocking 2.5 h, features 7 min, train 1.
 ## M3 done (per-country tau)
 `src/tune_country_tau.py` rebuilds the validation scores and tunes tau per country: US 0.625, India 0.650, France uses the global 0.625. Validation F0.5 goes from 0.97329 to 0.97332. The thresholds are saved as `tau_country` in `matcher_meta.json`, and `predict.py` applies them. New test output: 5,770,269 matches, 99,578 S1 without a match; validator PASS.
 
-## v2: DONE and submitted version (validator PASS)
+## v2 (superseded by v3 below)
 Changes vs v1:
 - **France normalisation:** departments→regions (Nord→Hauts-de-France …), "N°" dropped, French legal words. US/India normalisation is byte-identical to v1, so their blocking was reused and only France was re-blocked.
 - **New pair features (features.py):**
@@ -61,6 +61,12 @@ Models are in `work/model/` (s1_fold*.txt, s2_fold*.txt, te_*.parquet, matcher_m
 Test output (v2): 5,854,042 matches, 98,072 S1 without a match (France 5.3%, India 5.9%, US 5.5%). Validator PASS with --check-ids.
 Documentation_template.md and Quantum_submission.zip are updated to v2. The v1 files are kept locally in work/v1_backup/.
 Optional: `python analysis.py` (~40 min) adds the feature-ablation and country-transfer tables to the write-up.
+
+## v3: FINAL version (validator PASS)
+- New step 2b, `refine_candidates.py`: a stage-0b LightGBM filter on cheap similarities. Test candidates went from 12.05 to **5.92 per S1 entity** (−51%), which now counts in the final ranking. Train candidate recall 98.05%.
+- CV macro F0.5 **0.98365** (India 0.9811, US 0.9854), better than v2 (0.98323).
+- Test: 5,897,393 matches, 97,188 S1 without a match. `output/` and `Quantum_submission.zip` are v3.
+- Backups: `work/v2_backup/`, `work/v1_backup/`.
 
 ## Still to do
 1. **Upload** `output/matching_results.tsv` to the leaderboard. Put the score in Documentation_template.md (Section 5, "Public leaderboard F0.5").
