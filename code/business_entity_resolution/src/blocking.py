@@ -45,6 +45,8 @@ VIEWS = {
 def load(split):
     cols = ["entity_id", "country", "name_k", "name_s", "addr_c", "addr_s", "src"]
     s1 = pl.read_parquet(config.norm_path(split, 1), columns=cols)
+    if split == "train":
+        s1 = s1.filter(config.keep_train_s1(pl.col("entity_id")))
     q = pl.concat([pl.read_parquet(config.norm_path(split, s), columns=cols) for s in (2, 3)])
     return s1, q
 

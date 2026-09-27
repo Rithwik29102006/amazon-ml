@@ -4,10 +4,16 @@ import polars as pl
 import config
 
 
-def load_gt_pairs():
-    """(s1_id, q_id) for every true match in the training ground truth."""
+def load_gt_pairs(all_s1=False):
+    """(s1_id, q_id) for every true match in the training ground truth.
+
+    Unless all_s1, only pairs of the kept training Source-1 entities are returned
+    (see config.TRAIN_S1_KEEP_PCT): records of dropped entities become unmatched.
+    """
     gt = pl.read_csv(config.DATA_DIR / "train" / "train_ground_truth.tsv", separator="\t",
                      quote_char=None, infer_schema_length=0)
+    if not all_s1:
+        gt = gt.filter(config.keep_train_s1(pl.col("source1_entity_id")))
     return (gt.with_columns(pl.col("matched_entity_ids").fill_null("").str.split(","))
             .explode("matched_entity_ids")
             .filter(pl.col("matched_entity_ids") != "")

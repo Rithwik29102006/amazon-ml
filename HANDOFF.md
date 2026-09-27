@@ -68,6 +68,20 @@ Optional: `python analysis.py` (~40 min) adds the feature-ablation and country-t
 - Test: 5,897,393 matches, 97,188 S1 without a match. `output/` and `Quantum_submission.zip` are v3.
 - Backups: `work/v2_backup/`, `work/v1_backup/`.
 
+## Leaderboard result of v3 = 0.965 (27 Sep, 15:32) and diagnosis → v4
+- Top teams are at 0.991–0.992. Our CV was 0.984, so the test set differs from training.
+- **Diagnosis:**
+  - Test has 5.75 S2/S3 records per S1 entity, train only 4.68, yet the model finds the same ~3.45 confident matches per entity.
+  - So test Source 1 omits ~19% of the entities whose S2/S3 records are still present ("orphans").
+  - The model leans on relative features ("clearly the best candidate"), so it merges an orphan into the most similar remaining entity, creating false merges.
+- **v4 fix (branch `v4-test-like-training`):** `config.TRAIN_S1_KEEP_PCT = 81` keeps 81% of the training S1 entities (hash), so train has 5.78 records per entity and 59.9% matched records, like test.
+  - Blocking, labels (`evaluate.load_gt_pairs`) and CV use only the kept entities.
+  - The records of dropped entities stay as unmatched distractors, so the model learns to reject orphans.
+  - `translit.py` still learns from all pairs.
+- **v4 pipeline** (started 15:35 on Rithwik's laptop; train candidate files must be re-generated):
+  `blocking.py train` → `refine_candidates.py` → `build_features.py train test` → `check_v3_sim.py` (v3 models on the simulated data; expect ≈0.965 if the diagnosis is right) → `train.py` → `predict.py` → validator.
+- The v3 files that were uploaded are kept in `work/v3_backup/` (output TSVs, zip, models, train candidates).
+
 ## Still to do
 1. **Upload** `output/matching_results.tsv` to the leaderboard. Put the score in Documentation_template.md (Section 5, "Public leaderboard F0.5").
 2. **Submit** `Quantum_submission.zip` (rebuild it if the docs change).

@@ -87,7 +87,7 @@ def apply(split, tokmap, pool):
 
 def main():
     t = time.time()
-    gt = load_gt_pairs()
+    gt = load_gt_pairs(all_s1=True)
     split = split_s1(gt["s1_id"].unique())
     train_ids = split.filter(~pl.col("is_valid"))["s1_id"]
     maps = {

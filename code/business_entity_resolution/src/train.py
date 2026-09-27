@@ -90,7 +90,8 @@ def apply_rule(b, rule):
 def main():
     t0 = time.time()
     gt = load_gt_pairs()
-    s1 = pl.read_parquet(config.norm_path("train", 1), columns=["entity_id", "country"]).rename({"entity_id": "s1_id"})
+    s1 = (pl.read_parquet(config.norm_path("train", 1), columns=["entity_id", "country"])
+          .rename({"entity_id": "s1_id"}).filter(config.keep_train_s1(pl.col("s1_id"))))
     ids = s1["s1_id"]
     ids_by_country = {c: g["s1_id"] for (c,), g in s1.group_by("country")}
     holdout = split_s1(ids).filter(pl.col("is_valid"))["s1_id"]   # the earlier 15% validation split
