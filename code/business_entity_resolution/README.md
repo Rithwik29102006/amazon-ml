@@ -54,8 +54,8 @@ or step by step, from `src/`:
 | 1b | `python translit.py` | learn the romanised-Indic → English token dictionary from training pairs, re-normalise non-Latin names | 2 min |
 | 2 | `python blocking.py train test` | TF-IDF top-k retrieval (name / address / combined views) and the stage-0 pruner | ~2.5 h |
 | 3 | `python build_features.py train test` | 60+ pairwise similarity features | ~7 min |
-| 4 | `python train.py` | two-stage LightGBM (4-fold CV over Source-1 entities), out-of-fold token statistics, decision-rule search (global / per-country threshold, expected-F0.5 sets) | ~1.5 h |
-| 5 | `python predict.py` | score the test candidates and write both TSVs | ~15 min |
+| 4 | `python train.py` | two-stage LightGBM (4-fold CV over Source-1 entities), out-of-fold token statistics, decision-rule search (global / per-country threshold, expected-F0.5 sets) | ~45 min |
+| 5 | `python predict.py` | two-stage scoring of the test candidates, write both TSVs | ~20 min |
 
 \*On a 10-core laptop.
 
@@ -84,5 +84,5 @@ src/
   predict.py         step 5: submission files
 ```
 
-Every step is deterministic (fixed seeds, hash-based split). The validation
-split holds out 15% of the Source-1 training entities.
+Every step is deterministic (fixed seeds, hash-based folds). Model selection uses
+4-fold cross-validation over Source-1 training entities (cross-validated macro F0.5 0.9832).
