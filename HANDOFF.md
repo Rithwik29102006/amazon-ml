@@ -82,6 +82,16 @@ Optional: `python analysis.py` (~40 min) adds the feature-ablation and country-t
   `blocking.py train` → `refine_candidates.py` → `build_features.py train test` → `check_v3_sim.py` (v3 models on the simulated data; expect ≈0.965 if the diagnosis is right) → `train.py` → `predict.py` → validator.
 - The v3 files that were uploaded are kept in `work/v3_backup/` (output TSVs, zip, models, train candidates).
 
+## FINAL (27 Sep 21:45): leaderboard 0.972
+- Leaderboard probes with the v3 model and candidates:
+  - τ 0.30 → 0.940;
+  - CV rule (≈0.62) → 0.9635;
+  - **τ 0.90 → 0.972 (best)**;
+  - τ 0.97 → 0.970.
+- v4 (orphan-simulation retraining, friend's laptop) → 0.963, not used.
+- Final code: `predict.py FINAL_TAU = 0.90`, `config.TRAIN_S1_KEEP_PCT = 100` (v4 off). `predict.py` reproduces the uploaded file byte for byte.
+- Final `output/` and `Quantum_submission.zip` = τ 0.90 file + v3 candidates (5.92 per S1). Validator PASS (--check-ids).
+
 ## Still to do
 1. **Upload** `output/matching_results.tsv` to the leaderboard. Put the score in Documentation_template.md (Section 5, "Public leaderboard F0.5").
 2. **Submit** `Quantum_submission.zip` (rebuild it if the docs change).

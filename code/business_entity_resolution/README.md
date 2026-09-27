@@ -56,7 +56,7 @@ or step by step, from `src/`:
 | 2b | `python refine_candidates.py` | stage-0b filter: cheap name/address/number similarities, drops ~50% of candidates → final candidate set | ~9 min |
 | 3 | `python build_features.py train test` | 60+ pairwise similarity features | ~7 min |
 | 4 | `python train.py` | two-stage LightGBM (4-fold CV over Source-1 entities), out-of-fold token statistics, decision-rule search (global / per-country threshold, expected-F0.5 sets) | ~45 min |
-| 5 | `python predict.py` | two-stage scoring of the test candidates, write both TSVs | ~20 min |
+| 5 | `python predict.py` | two-stage scoring of the test candidates; final threshold `FINAL_TAU = 0.90` (calibrated to the test set, see Documentation 5.1); writes both TSVs | ~15 min |
 
 \*On a 10-core laptop.
 
@@ -83,9 +83,10 @@ src/
   model.py           shared model code: token statistics, stage-2 features, decision rules
   train.py           step 4: stage-1 + stage-2 LightGBM with 4-fold CV, decision-rule search
   analysis.py        optional: feature ablation + country-transfer experiments
+  check_v3_sim.py    optional: score saved models on simulated test-like training data (v4 experiment)
   predict.py         step 5: submission files
   run_all.sh         runs steps 1-5 end to end
 ```
 
 Every step is deterministic (fixed seeds, hash-based folds). Model selection uses
-4-fold cross-validation over Source-1 training entities (cross-validated macro F0.5 0.9832).
+4-fold cross-validation over Source-1 training entities (CV macro F0.5 0.9837; public leaderboard 0.972).

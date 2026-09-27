@@ -22,12 +22,13 @@ SEED = 42
 # fraction of train Source-1 entities held out for validation
 VALID_FRAC = 0.15
 
-# The test set has ~5.75 Source-2/3 records per Source-1 entity versus 4.68 in
-# training: test Source 1 omits many entities whose S2/S3 records are still present
-# ("orphans"). To train under the same conditions we keep only this percentage of
-# the training Source-1 entities; the records of the dropped entities stay in the
-# data as unmatched distractors (4.68 / 0.81 ~ 5.75 records per entity).
-TRAIN_S1_KEEP_PCT = int(os.environ.get("BER_TRAIN_S1_KEEP_PCT", 81))
+# Experiment (v4): the test set has ~5.75 Source-2/3 records per Source-1 entity
+# versus 4.68 in training (test Source 1 omits many entities whose S2/S3 records are
+# still present). Setting this below 100 keeps only that percentage of the training
+# Source-1 entities, so the dropped entities' records become unmatched distractors
+# (81 -> ~5.75 records per entity). With 81 the leaderboard did not improve
+# (0.963 vs 0.9635), so the final submission trains on all entities (100).
+TRAIN_S1_KEEP_PCT = int(os.environ.get("BER_TRAIN_S1_KEEP_PCT", 100))
 
 
 def keep_train_s1(ids):
