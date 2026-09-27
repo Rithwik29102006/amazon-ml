@@ -9,4 +9,5 @@ $PY -W ignore translit.py                  # 1b. learn + apply Indic->English to
 $PY -W ignore blocking.py train test       # 2. TF-IDF top-k blocking + stage-0 pruner
 $PY -W ignore build_features.py train test # 3. pair features
 $PY -W ignore train.py                     # 4. matcher + threshold (validated on held-out S1 split)
+$PY -W ignore tune_country_tau.py          # 4b. per-country threshold (kept only if validation F0.5 improves)
 $PY -W ignore predict.py                   # 5. write the two submission files

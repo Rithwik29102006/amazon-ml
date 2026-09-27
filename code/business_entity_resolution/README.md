@@ -53,6 +53,7 @@ or step by step, from `src/`:
 | 2 | `python blocking.py train test` | TF-IDF top-k retrieval (name / address / combined views) and the stage-0 pruner | ~2.5 h |
 | 3 | `python build_features.py train test` | 60+ pairwise similarity features | ~7 min |
 | 4 | `python train.py` | train the matcher, tune the threshold on the validation split, refit on all data | ~1.5 h |
+| 4b | `python tune_country_tau.py` | tune the threshold per training country (France keeps the global one); saved only if validation F0.5 improves | ~2 min |
 | 5 | `python predict.py` | score the test candidates and write both TSVs | ~15 min |
 
 \*On a 10-core laptop.
@@ -77,6 +78,7 @@ src/
   build_features.py  step 3: features for all candidate pairs, chunked
   evaluate.py        ground truth loading, S1 hash split, macro F0.5
   train.py           step 4: matcher, threshold search, final refit
+  tune_country_tau.py step 4b: per-country thresholds -> matcher_meta.json (tau_country)
   predict.py         step 5: submission files
 ```
 
