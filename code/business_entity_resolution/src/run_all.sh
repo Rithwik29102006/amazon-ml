@@ -2,7 +2,7 @@
 # End-to-end pipeline: raw TSVs -> output/matching_results.tsv + output/candidate_pairs.tsv
 # Env overrides: BER_DATA_DIR (folder with train/ and test/), BER_WORK_DIR, BER_OUT_DIR, BER_N_JOBS
 set -euo pipefail
-cd "$(dirname "$0")/src"
+cd "$(dirname "$0")"
 PY=${PYTHON:-python}
 $PY -W ignore prepare.py train test        # 1. normalise names / addresses
 $PY -W ignore translit.py                  # 1b. learn + apply Indic->English token dictionary

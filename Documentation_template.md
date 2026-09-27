@@ -231,7 +231,7 @@ A carefully normalised sparse-retrieval blocker, a learned pruner and a gradient
 ## Appendix
 
 ### A. Code Artefacts
-The code is in `code/business_entity_resolution/`: all source in `src/`, plus `README.md`, `requirements.txt` and `run_all.sh`.
+The code is in `code/business_entity_resolution/`: all source in `src/` (including the end-to-end script `src/run_all.sh`), plus `README.md` and `requirements.txt`.
 
 | step | entry point | output |
 |---|---|---|
@@ -243,7 +243,7 @@ The code is in `code/business_entity_resolution/`: all source in `src/`, plus `R
 | 4 | `src/train.py` (uses `src/model.py`) | `work/model/s1_fold*.txt`, `s2_fold*.txt`, `te_*.parquet`, `matcher_meta.json` (features, decision rule, CV scores) |
 | 5 | `src/predict.py` | `output/matching_results.tsv`, `output/candidate_pairs.tsv` |
 
-`bash run_all.sh` runs everything end to end, taking about 3.5 hours on a 10-core, 16 GB laptop. Blocking dominates the runtime. `src/analysis.py` (optional) reproduces the ablation and country-transfer experiments.
+`bash src/run_all.sh` runs everything end to end, taking about 3.5 hours on a 10-core, 16 GB laptop. Blocking dominates the runtime. `src/analysis.py` (optional) reproduces the ablation and country-transfer experiments.
 
 ### B. Additional Results
 Out-of-fold macro F0.5 of stage 2 with a single global threshold τ (the chosen expected-F rule reaches 0.98365):

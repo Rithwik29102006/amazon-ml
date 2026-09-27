@@ -43,7 +43,7 @@ By default it looks for `../../dataset` relative to this folder (the
 ## Run end to end
 
 ```bash
-bash run_all.sh
+bash src/run_all.sh
 ```
 
 or step by step, from `src/`:
@@ -84,6 +84,7 @@ src/
   train.py           step 4: stage-1 + stage-2 LightGBM with 4-fold CV, decision-rule search
   analysis.py        optional: feature ablation + country-transfer experiments
   predict.py         step 5: submission files
+  run_all.sh         runs steps 1-5 end to end
 ```
 
 Every step is deterministic (fixed seeds, hash-based folds). Model selection uses
