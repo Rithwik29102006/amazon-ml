@@ -68,7 +68,7 @@ Optional: `python analysis.py` (~40 min) adds the feature-ablation and country-t
 - Test: 5,897,393 matches, 97,188 S1 without a match. `output/` and `Quantum_submission.zip` are v3.
 - Backups: `work/v2_backup/`, `work/v1_backup/`.
 
-## Leaderboard result of v3 = 0.965 (27 Sep, 15:32) and diagnosis → v4
+## Leaderboard result of v3 = 0.9635 (27 Sep, 15:32) and diagnosis → v4
 - Top teams are at 0.991–0.992. Our CV was 0.984, so the test set differs from training.
 - **Diagnosis:**
   - Test has 5.75 S2/S3 records per S1 entity, train only 4.68, yet the model finds the same ~3.45 confident matches per entity.
