@@ -95,7 +95,24 @@ FR_REGIONS = {
     "bretagne": "bre", "bourgogne franche comte": "bfc",
     "centre val de loire": "cvl", "corse": "cor",
 }
-_STATE_MAPS = {"US": US_STATES, "India": IN_STATES, "France": FR_REGIONS}
+# French departments used by Source 2/3 where Source 1 writes the region
+# ("Dunkerque, Nord" vs "Dunkerque, Hauts-de-France"): map them to the region code.
+FR_DEPTS = {
+    "nord": "hdf", "pas de calais": "hdf", "somme": "hdf", "oise": "hdf", "aisne": "hdf",
+    "gironde": "naq", "landes": "naq", "dordogne": "naq", "lot et garonne": "naq",
+    "pyrenees atlantiques": "naq", "charente": "naq", "charente maritime": "naq",
+    "deux sevres": "naq", "vienne": "naq", "haute vienne": "naq", "creuse": "naq",
+    "correze": "naq",
+    "loire atlantique": "pdl", "maine et loire": "pdl", "mayenne": "pdl",
+    "sarthe": "pdl", "vendee": "pdl",
+}
+_STATE_MAPS = {"US": US_STATES, "India": IN_STATES, "France": {**FR_REGIONS, **FR_DEPTS}}
+# the skeleton fallback (romanised native script) only uses full state/region names
+_SKEL_MAPS = {"US": US_STATES, "India": IN_STATES, "France": FR_REGIONS}
+# France-only extras (kept out of the global tables so US/India output is unchanged)
+FR_ADDR_DROP = {"no", "ndeg", "cedex"}
+FR_LEGAL = {"groupe", "holding", "ets", "etablissements", "ei", "selarl", "scm", "gie"}
+FR_STOP = {"aux", "au", "sur", "en"}
 
 
 def _phrase_re(mapping):
@@ -146,7 +163,7 @@ def skeleton(tok: str) -> str:
     return s or tok[:1]
 
 
-for _c, _m in _STATE_MAPS.items():
+for _c, _m in _SKEL_MAPS.items():
     _STATE_SKEL[_c] = {}
     for _k, _v in _m.items():
         _sk = skeleton(_k.replace(" ", ""))
@@ -195,12 +212,14 @@ def _map_tok(t, tokmap):
     return tokmap.get(t, t)
 
 
-def norm_name(raw: str, tokmap=None):
+def norm_name(raw: str, tokmap=None, country=None):
     """Return a dict of name representations.
 
     tokmap: optional learned {romanised token -> english token} dictionary
     (see translit.py), applied only to names written in a non-Latin script.
+    country: "France" adds French legal forms / stop words.
     """
+    legal_set, stop_set = (LEGAL | FR_LEGAL, STOP | FR_STOP) if country == "France" else (LEGAL, STOP)
     a = to_ascii(raw)
     # non-Latin *script* (Indic etc.), not just accented Latin letters
     nonlatin = raw is not None and not raw.isascii() and any(ord(ch) > 0x2FF for ch in raw)
@@ -210,13 +229,13 @@ def norm_name(raw: str, tokmap=None):
     toks = _name_tokens(a)
     if nonlatin:
         toks = [LEGAL_BY_SKEL.get(skeleton(t), t) for t in toks]
-    core = [t for t in toks if t not in LEGAL and t not in STOP]
+    core = [t for t in toks if t not in legal_set and t not in stop_set]
     if not core:
-        core = [t for t in toks if t not in STOP] or toks
-    legal = sorted({t for t in toks if t in LEGAL})
+        core = [t for t in toks if t not in stop_set] or toks
+    legal = sorted({t for t in toks if t in legal_set})
     part_cores = []
     for p in parts:
-        pt = [t for t in _name_tokens(p) if t not in LEGAL and t not in STOP]
+        pt = [t for t in _name_tokens(p) if t not in legal_set and t not in stop_set]
         if pt:
             part_cores.append(" ".join(pt))
     return {
@@ -252,9 +271,10 @@ def norm_addr(raw: str, country: str):
     raw_toks = a.split()
     if raw is not None and not raw.isascii():
         raw_toks = _map_state_skel(raw_toks, country)
+    drop = ADDR_DROP | FR_ADDR_DROP if country == "France" else ADDR_DROP
     toks = []
     for t in raw_toks:
-        if t in ADDR_DROP:
+        if t in drop:
             continue
         toks.append(ADDR_MAP.get(t, t))
     nums = [t for t in toks if any(ch.isdigit() for ch in t)]
@@ -268,6 +288,6 @@ def norm_addr(raw: str, country: str):
 
 def norm_record(args, tokmap=None):
     name, addr, country = args
-    d = norm_name(name, tokmap)
+    d = norm_name(name, tokmap, country)
     d.update(norm_addr(addr, country))
     return d

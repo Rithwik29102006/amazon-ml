@@ -7,8 +7,9 @@ it describes, or to nothing. It produces the two submission files:
 * `output/candidate_pairs.tsv` — the exact candidate set the matcher scores
 
 Only the provided training data is used. There are no external lookups, APIs,
-geocoders or pretrained language models. The classifier is scikit-learn's
-`HistGradientBoostingClassifier` (BSD-3, well under 8B parameters).
+geocoders or pretrained language models. The classifiers are LightGBM gradient-boosted
+trees (MIT license, far below 8B parameters). The stage-0 pruner is scikit-learn's
+`HistGradientBoostingClassifier` (BSD-3).
 
 ## Environment
 
@@ -17,6 +18,7 @@ Python 3.11. Tested on macOS arm64 (10 cores, 16 GB RAM).
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+# macOS only: LightGBM needs OpenMP -> brew install libomp
 ```
 
 ## Data layout
@@ -52,8 +54,7 @@ or step by step, from `src/`:
 | 1b | `python translit.py` | learn the romanised-Indic → English token dictionary from training pairs, re-normalise non-Latin names | 2 min |
 | 2 | `python blocking.py train test` | TF-IDF top-k retrieval (name / address / combined views) and the stage-0 pruner | ~2.5 h |
 | 3 | `python build_features.py train test` | 60+ pairwise similarity features | ~7 min |
-| 4 | `python train.py` | train the matcher, tune the threshold on the validation split, refit on all data | ~1.5 h |
-| 4b | `python tune_country_tau.py` | tune the threshold per training country (France keeps the global one); saved only if validation F0.5 improves | ~2 min |
+| 4 | `python train.py` | two-stage LightGBM (4-fold CV over Source-1 entities), out-of-fold token statistics, decision-rule search (global / per-country threshold, expected-F0.5 sets) | ~1.5 h |
 | 5 | `python predict.py` | score the test candidates and write both TSVs | ~15 min |
 
 \*On a 10-core laptop.
@@ -77,8 +78,9 @@ src/
   features.py        pairwise features (rapidfuzz cpdist, token-set overlaps, numbers)
   build_features.py  step 3: features for all candidate pairs, chunked
   evaluate.py        ground truth loading, S1 hash split, macro F0.5
-  train.py           step 4: matcher, threshold search, final refit
-  tune_country_tau.py step 4b: per-country thresholds -> matcher_meta.json (tau_country)
+  model.py           shared model code: token statistics, stage-2 features, decision rules
+  train.py           step 4: stage-1 + stage-2 LightGBM with 4-fold CV, decision-rule search
+  analysis.py        optional: feature ablation + country-transfer experiments
   predict.py         step 5: submission files
 ```
 

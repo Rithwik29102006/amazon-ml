@@ -31,7 +31,98 @@ def _list_jacc(a, b):
     return pl.when(union > 0).then(inter / union).otherwise(None)
 
 
-def pair_features(cand: pl.DataFrame, s1: pl.DataFrame, q: pl.DataFrame) -> pl.DataFrame:
+ADMIN_WORDS = ["cdp", "city", "village", "borough", "town", "township", "twp", "cnty", "county",
+               "dist", "of", "municipality"]
+MAX_DIFF = 4  # cap on differing tokens compared pairwise
+
+
+def _tok(c):
+    return pl.col(c).fill_null("").str.split(" ").list.eval(pl.element().filter(pl.element() != ""))
+
+
+def _cross(x, a, b, scorers):
+    """Pairwise-compare list columns a x b per row; returns rid + aggregated scores."""
+    ex = (x.select("rid", pl.col(a).list.head(MAX_DIFF).alias("u"), pl.col(b).list.head(MAX_DIFF).alias("v"))
+          .filter((pl.col("u").list.len() > 0) & (pl.col("v").list.len() > 0))
+          .explode("u").explode("v"))
+    if ex.height == 0:
+        return None
+    u, v = ex["u"].to_list(), ex["v"].to_list()
+    return ex.select("rid", "u", "v").with_columns(
+        **{name: pl.Series(_cp(u, v, fn)) for name, fn in scorers.items()})
+
+
+def diff_features(d: pl.DataFrame, vocab: pl.DataFrame) -> pl.DataFrame:
+    """Features on the tokens that differ between the two names / addresses.
+
+    Typos ("brotenrs" vs "brothers") signal a true match. Substituted *real*
+    words ("technology" vs "technologies", "bioworks" vs "plumbing") signal a
+    generated distractor. `vocab` holds the document frequency of every
+    core-name token in the split's Source-1 file (no labels involved).
+    """
+    x = d.select(
+        pl.int_range(0, pl.len(), dtype=pl.UInt32).alias("rid"), "q_id", "s1_id",
+        _tok("name_k").alias("A"), _tok("name_k_b").alias("B"),
+        _tok("addr_num").alias("NA"), _tok("addr_num_b").alias("NB"),
+        _tok("addr_c").list.eval(pl.element().filter(~pl.element().is_in(ADMIN_WORDS))).list.join(" ").alias("AC"),
+        _tok("addr_c_b").list.eval(pl.element().filter(~pl.element().is_in(ADMIN_WORDS))).list.join(" ").alias("ACb"),
+    ).with_columns(
+        pl.col("A").list.set_difference("B").list.sort().alias("dA"),
+        pl.col("B").list.set_difference("A").list.sort().alias("dB"),
+    )
+    out = x.select(
+        "rid", "q_id", "s1_id",
+        pl.col("dA").list.len().cast(pl.Int16).alias("nd_a"),
+        pl.col("dB").list.len().cast(pl.Int16).alias("nd_b"),
+        pl.col("dA").list.join(" ").alias("dA"),
+        pl.col("dB").list.join(" ").alias("dB"),
+    )
+    both = (out["nd_a"] > 0) & (out["nd_b"] > 0)
+    typo = _cp(out["dA"].to_list(), out["dB"].to_list(), fuzz.ratio)
+    typo[~both.to_numpy()] = np.nan
+    out = out.with_columns(pl.Series("nd_ratio", typo),
+                           pl.Series("a_tset_admin", _cp(x["AC"].to_list(), x["ACb"].to_list(), fuzz.token_set_ratio)))
+
+    # best token-to-token typo similarity between the differing words
+    cr = _cross(x, "dA", "dB", {"jw": distance.JaroWinkler.normalized_similarity,
+                                "lev": distance.Levenshtein.distance})
+    if cr is not None:
+        agg = cr.group_by("rid").agg(pl.col("jw").max().alias("nd_best_jw"), pl.col("lev").min().alias("nd_min_lev"))
+        out = out.join(agg, on="rid", how="left")
+    else:
+        out = out.with_columns(pl.lit(None, pl.Float32).alias("nd_best_jw"), pl.lit(None, pl.Float32).alias("nd_min_lev"))
+
+    # are the differing words real words (frequent in Source-1) or typos (unseen)?
+    for side, col in (("b", "dB"), ("a", "dA")):
+        ex = x.select("rid", pl.col(col).list.head(MAX_DIFF).alias("t")).explode("t").drop_nulls("t")
+        ex = ex.join(vocab, left_on="t", right_on="tok", how="left").with_columns(
+            pl.col("df").fill_null(0).cast(pl.Float32).log1p().alias("ldf"))
+        agg = ex.group_by("rid").agg(
+            pl.col("ldf").max().alias(f"nd_{side}_ldf_max"),
+            pl.col("ldf").min().alias(f"nd_{side}_ldf_min"),
+            (pl.col("ldf") >= np.log1p(3)).sum().cast(pl.Int16).alias(f"nd_{side}_known"),
+            (pl.col("ldf") == 0).sum().cast(pl.Int16).alias(f"nd_{side}_unseen"))
+        out = out.join(agg, on="rid", how="left")
+
+    # house numbers: truncation ("3900" vs "390"), digit typos ("5327" vs "5325"), suffixes ("1056c")
+    cr = _cross(x, "NA", "NB", {"lev": distance.Levenshtein.distance})
+    if cr is not None:
+        cr = cr.with_columns(
+            ((pl.col("u") != pl.col("v")) & (pl.col("u").str.starts_with(pl.col("v")) | pl.col("v").str.starts_with(pl.col("u"))))
+            .alias("pref"),
+            (pl.col("u").str.replace_all(r"\D", "") == pl.col("v").str.replace_all(r"\D", "")).alias("digits_eq"))
+        agg = cr.group_by("rid").agg(
+            pl.col("lev").min().alias("num_min_lev"),
+            pl.col("pref").any().cast(pl.Int8).alias("num_prefix"),
+            pl.col("digits_eq").any().cast(pl.Int8).alias("num_digits_eq"))
+        out = out.join(agg, on="rid", how="left")
+    else:
+        out = out.with_columns(pl.lit(None, pl.Float32).alias("num_min_lev"),
+                               pl.lit(None, pl.Int8).alias("num_prefix"), pl.lit(None, pl.Int8).alias("num_digits_eq"))
+    return out.drop("rid")
+
+
+def pair_features(cand: pl.DataFrame, s1: pl.DataFrame, q: pl.DataFrame, vocab: pl.DataFrame) -> pl.DataFrame:
     """cand must have q_id, s1_id and the blocking score/rank columns."""
     d = (cand.join(s1, left_on="s1_id", right_on="entity_id", how="left")
          .join(q, left_on="q_id", right_on="entity_id", how="left", suffix="_b"))
@@ -116,12 +207,23 @@ def pair_features(cand: pl.DataFrame, s1: pl.DataFrame, q: pl.DataFrame) -> pl.D
         out = out.with_columns(pl.lit(None, pl.Float32).alias("n_alias_best"))
     out = out.with_columns(pl.max_horizontal("n_tset", pl.col("n_alias_best").fill_null(0)).alias("n_best"))
 
+    out = out.join(diff_features(d, vocab), on=["q_id", "s1_id"], how="left")
     keep = [c for c in cand.columns if c not in ("q_id", "s1_id")]
     out = out.join(cand.select(["q_id", "s1_id"] + keep), on=["q_id", "s1_id"], how="left")
     bool_cols = [c for c, t in out.schema.items() if t == pl.Boolean]
     return out.with_columns(pl.col(bool_cols).cast(pl.Int8))
 
 
-# the model sees every column except the ids / label
+NON_FEATURES = ("q_id", "s1_id", "label", "is_valid", "fold", "dA", "dB", "country")
+
+
+# the model sees every numeric column except ids / labels / helper strings
 def feature_columns(df):
-    return [c for c in df.columns if c not in ("q_id", "s1_id", "label", "is_valid")]
+    return [c for c, t in df.schema.items() if c not in NON_FEATURES and t != pl.Utf8]
+
+
+def name_vocab(s1: pl.DataFrame) -> pl.DataFrame:
+    """Document frequency of core-name tokens in a Source-1 file (unsupervised)."""
+    return (s1.select(pl.int_range(0, pl.len()).alias("r"), _tok("name_k").alias("tok"))
+            .explode("tok").drop_nulls("tok").unique(["r", "tok"])
+            .group_by("tok").agg(pl.len().cast(pl.UInt32).alias("df")))

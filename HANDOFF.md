@@ -35,6 +35,32 @@ Measured runtimes (10-core Mac, 16 GB): blocking 2.5 h, features 7 min, train 1.
 ## M3 done (per-country tau)
 `src/tune_country_tau.py` rebuilds the validation scores and tunes tau per country: US 0.625, India 0.650, France uses the global 0.625. Validation F0.5 goes from 0.97329 to 0.97332. The thresholds are saved as `tau_country` in `matcher_meta.json`, and `predict.py` applies them. New test output: 5,770,269 matches, 99,578 S1 without a match; validator PASS.
 
+## v2 (branch `v2-two-stage-model`), training done, test prediction NOT yet run
+Changes vs v1:
+- **France normalisation:** departments→regions (Nord→Hauts-de-France …), "N°" dropped, French legal words. US/India normalisation is byte-identical to v1, so their blocking was reused and only France was re-blocked.
+- **New pair features (features.py):**
+  - words differing between the two names: typo similarity, and whether each is a real Source-1 word or an unseen typo;
+  - house-number truncation and digit typos;
+  - address similarity without admin words (CDP, City of …).
+- **Model (model.py, train.py):**
+  - LightGBM (MIT), 4-fold CV over S1 entities, all 19.4M training pairs;
+  - out-of-fold token statistics for the differing words;
+  - **stage 2:** each S2/S3 record keeps its best candidate and is re-scored with context (competition inside the query, how many records the S1 entity already has, similarity to those records);
+  - decision rule chosen by CV among global tau, per-country tau (M3's idea, now built into train.py; tune_country_tau.py removed) and expected-F0.5 set selection.
+- **Cross-validated macro F0.5 on all 2.2M training S1:**
+
+| model | F0.5 |
+|---|---|
+| v1 (HGB, 15% holdout) | 0.9733 |
+| v2 stage 1 | 0.9786 |
+| v2 stage 2 + global tau | 0.9830 |
+| v2 stage 2 + per-country tau | 0.9830 |
+| **v2 stage 2 + expected-F0.5 sets (chosen)** | **0.9832** (India 0.9806, US 0.9850; old 15% holdout 0.9832) |
+
+Models are in `work/model/` (s1_fold*.txt, s2_fold*.txt, te_*.parquet, matcher_meta.json).
+**Next:** `python predict.py` (~20 min; needs test features from `build_features.py test`) → validator → update docs → rebuild zip.
+Until then the v1 outputs (global/per-country tau) remain the submitted version.
+
 ## Still to do
 1. **Upload** `output/matching_results.tsv` to the leaderboard. Put the score in Documentation_template.md (Section 5, "Public leaderboard F0.5").
 2. **Submit** `Quantum_submission.zip` (rebuild it if the docs change).
